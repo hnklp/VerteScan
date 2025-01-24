@@ -4,8 +4,7 @@ using VerteMark.ObjectClasses.FolderClasses;
 using System.Diagnostics;
 using Newtonsoft.Json.Linq;
 using System.Reflection;
-using System.Xml.Linq;
-using System.Windows.Annotations;
+using System.Windows.Controls;
 
 
 namespace VerteMark.ObjectClasses
@@ -30,7 +29,7 @@ namespace VerteMark.ObjectClasses
         JsonManipulator? jsonManip;
         bool IsAnotated = false;
         bool newProject;
-        bool saved;
+        public bool saved;
         public bool anyProjectAvailable;
 
 
@@ -45,9 +44,30 @@ namespace VerteMark.ObjectClasses
             anyProjectAvailable = true;
         }
 
+        public void CropOriginalPicture(BitmapSource image)
+        {
+            BitmapImage bitmapImage = new BitmapImage();
+            using (MemoryStream stream = new MemoryStream())
+            {
+                PngBitmapEncoder encoder = new PngBitmapEncoder(); // nebo jiný vhodný encoder podle vašich potřeb
+                encoder.Frames.Add(BitmapFrame.Create(image));
+                encoder.Save(stream);
+                bitmapImage.BeginInit();
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapImage.StreamSource = stream;
+                bitmapImage.EndInit();
+            }
+            SetOriginalPicture(bitmapImage);
+        }
 
-        public bool TryOpeningProject(string path) {
+
+        public bool ChooseProjectFolder(string path) {
             return folderUtilityManager.ExtractZip(path);
+        }
+
+        public bool isAnyProjectAvailable()
+        {
+            return anyProjectAvailable;
         }
 
 
@@ -308,7 +328,7 @@ namespace VerteMark.ObjectClasses
             if (activeAnotace != null) {
                 return activeAnotace.Id.ToString();
             }
-            return null;
+            return "";
         }
 
 
@@ -326,6 +346,9 @@ namespace VerteMark.ObjectClasses
         public void ClearActiveAnotace() {
             if (activeAnotace != null) {
                 activeAnotace.ClearCanvas();
+
+                activeAnotace.Points.Clear();
+                activeAnotace.Lines.Clear();
             }
         }
 
@@ -366,22 +389,93 @@ namespace VerteMark.ObjectClasses
             }
         }
 
+        public void AddPointActiveAnot(PointMarker point)
+        {
+            if (activeAnotace != null)
+            {
+                activeAnotace.Points.Add(point);
+            }
+        }
+
+        public int GetPointsCount()
+        {
+            if (activeAnotace != null)
+            {
+                return activeAnotace.Points.Count;
+            }
+            return 0;
+        }
+
+        public PointMarker? GetPointByIndex(int index)
+        {
+            if (activeAnotace != null)
+            {
+                return activeAnotace.Points[index];
+            }
+            return null;
+        }
+
+        public void UpdatePointsScale(double zoomFactor)
+        {
+            double scale = 1 / zoomFactor;
+
+            foreach (Anotace anotace in anotaces)
+                foreach (PointMarker point in anotace.Points)
+                {
+                    point.UpdateScale(scale);
+                }
+        }
+
+        public void AddConnectionActiveAnot(LineConnection line)
+        {
+            if (activeAnotace != null)
+            {
+                activeAnotace.Lines.Add(line);
+            }
+        }
+
+        public LineConnection? GetLastConnection()
+        {
+            if (activeAnotace != null)
+            {
+                return activeAnotace.Lines[activeAnotace.Lines.Count - 1];
+            }
+            return null;
+        }
+
+        public void RemoveLastConnection()
+        {
+            if (activeAnotace != null)
+            {
+                activeAnotace.Lines.RemoveAt(activeAnotace.Lines.Count - 1);
+            }
+        }
+
+        public void RemovePointsAndConnections(Canvas canvas)
+        {
+            if (activeAnotace != null)
+            {
+                foreach (LineConnection line in activeAnotace.Lines)
+                {
+                    line.Remove(canvas);
+                }
+                foreach (PointMarker point in activeAnotace.Points)
+                {
+                    point.Remove(canvas);
+                }
+            }
+        }
+
         /*
         * ===========
         * User metody
         * ===========
         */
 
-
         public void LoginNewUser(string id, bool validator) {
             loggedInUser = new User(id, validator);
+            Debug.WriteLine(loggedInUser);
         }
-
-
-        public void LogoutUser() {
-            loggedInUser = null;
-        }
-
 
         public User GetLoggedInUser() {
             return loggedInUser;
